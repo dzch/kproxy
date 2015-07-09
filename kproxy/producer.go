@@ -51,12 +51,12 @@ func newProducer(kp *KProxy) (*Producer, error) {
 }
 
 func (p *Producer) init() error {
-	// TODO: producer config
 	var err error
     pconfig := sarama.NewConfig()
 	pconfig.Net.MaxOpenRequests = 10240
 	pconfig.Producer.Return.Successes = true
 	pconfig.Producer.Return.Errors = true
+	pconfig.Producer.Partitioner = sarama.NewHashPartitioner
 	p.ap, err = sarama.NewAsyncProducer(p.config.brokerList, pconfig)
 	if err != nil {
 		return err
@@ -84,9 +84,13 @@ func (p *Producer) produce(cmData *CmData) {
 	pmpe.privData = cmData
 	pmsg := pmpe.pmsg
 	pmsg.Topic = cmData.topic
-	pmsg.Key = sarama.StringEncoder(cmData.key)
+	if len(cmData.key) == 0 {
+		// if key is empty, using sarama.RandomPartitioner
+		pmsg.Key = nil
+	} else {
+	    pmsg.Key = sarama.StringEncoder(cmData.key)
+	}
 	pmsg.Value = sarama.ByteEncoder(cmData.data)
-	pmsg.Partition = 0   // TODO: 
 	pmsg.Metadata = pmpe
 	// do produce
 	for {

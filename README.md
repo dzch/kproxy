@@ -1,5 +1,5 @@
 # kproxy
-http to kafka proxy
+http to kafka proxy in development 
 
 # build
 
