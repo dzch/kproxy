@@ -24,7 +24,11 @@
 package kproxy
 
 import (
+		"github.com/go-yaml/yaml"
 		"time"
+		"io/ioutil"
+		"errors"
+		"fmt"
 	   )
 
 type Config struct {
@@ -45,19 +49,7 @@ type Config struct {
 
 func newConfig(confFile string) (*Config, error) {
     c := &Config {
-		// kproxy
 		confFile: confFile,
-		logDir: "./log",
-		logLevel: 16,
-		producerNum: 1,
-		// http server
-		httpServerListenPort: 8088,
-		httpServerReadTimeout: 10 * time.Second,
-		httpServerWriteTimeout: 10 * time.Second,
-		cmDataPoolSize: 10240,
-		// producer
-		brokerList: []string{"10.1.1.17:9902"},
-		producerMsgPoolSize: 10240,
 	   }
 	err := c.init()
 	if err != nil {
@@ -67,5 +59,90 @@ func newConfig(confFile string) (*Config, error) {
 }
 
 func (c *Config) init() error {
+    content, err := ioutil.ReadFile(c.confFile)
+	if err != nil {
+		return err
+	}
+    m := make(map[interface{}]interface{})
+	err = yaml.Unmarshal(content, &m)
+	if err != nil {
+		return err
+	}
+
+	/* log conf */
+    logDir, ok := m["log_dir"]
+	if !ok {
+		return errors.New("log_dir not found in conf file")
+    }
+	c.logDir = logDir.(string)
+	logLevel, ok := m["log_level"]
+	if !ok {
+		return errors.New("log_level not found in conf file")
+	}
+	c.logLevel = logLevel.(int)
+
+	/* broker conf */
+	brokerhosts, ok := m["broker_hosts"]
+	if !ok {
+		return errors.New("broker_hosts not found in conf file")
+	}
+    brokerHosts := brokerhosts.([]interface{})
+	if len(brokerHosts) <= 0 {
+		return errors.New("num of brokerHosts is zero")
+	}
+	for _, brokerhost := range brokerHosts {
+		c.brokerList = append(c.brokerList, brokerhost.(string))
+	}
+
+	/* producer conf */
+	pNum, ok := m["producer_num"]
+	if ok {
+		c.producerNum = pNum.(int)
+	} else {
+		c.producerNum = 1
+	}
+
+	/* http server */
+	port, ok := m["port"]
+	if !ok {
+		return errors.New("port not found in conf file")
+	}
+	c.httpServerListenPort = uint16(port.(int))
+	rtimeo, ok := m["read_timeout_ms"]
+	if !ok {
+		return errors.New("read_timeout_ms not found in conf file")
+	}
+	c.httpServerReadTimeout = time.Duration(rtimeo.(int))*time.Millisecond
+	wtimeo, ok := m["write_timeout_ms"]
+	if !ok {
+		return errors.New("write_timeout_ms not found in conf file")
+	}
+	c.httpServerWriteTimeout = time.Duration(wtimeo.(int))*time.Millisecond
+	reqPoolSize, ok := m["req_pool_size"]
+	if !ok {
+		c.cmDataPoolSize = 10240
+		c.producerMsgPoolSize = 10240
+	} else {
+		c.cmDataPoolSize = reqPoolSize.(int)
+		c.producerMsgPoolSize = reqPoolSize.(int)
+	}
+
+	c.dump()
 	return nil
 }
+
+func (c *Config) dump() {
+	fmt.Println("confFile:", c.confFile)
+	fmt.Println("logDir:", c.logDir)
+	fmt.Println("logLevel:", c.logLevel)
+	fmt.Println("producerNum:", c.producerNum)
+	fmt.Println("httpServerListenPort:", c.httpServerListenPort)
+	fmt.Println("httpServerReadTimeout:", c.httpServerReadTimeout)
+	fmt.Println("httpServerWriteTimeout:", c.httpServerWriteTimeout)
+	fmt.Println("cmDataPoolSize:", c.cmDataPoolSize)
+	fmt.Println("producerMsgPoolSize:", c.producerMsgPoolSize)
+	for idx, broker := range c.brokerList {
+		fmt.Println("broker ", idx, broker)
+	}
+}
+

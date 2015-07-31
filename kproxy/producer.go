@@ -25,7 +25,6 @@ package kproxy
 
 import (
 		"github.com/Shopify/sarama"
-//		"github.com/dzch/go-utils/logger"
 	   )
 
 type Producer struct {
@@ -52,6 +51,7 @@ func newProducer(kp *KProxy) (*Producer, error) {
 
 func (p *Producer) init() error {
 	var err error
+	sarama.Logger = newSaramaLogger()
     pconfig := sarama.NewConfig()
 	pconfig.Net.MaxOpenRequests = 10240
 	pconfig.Producer.Return.Successes = true

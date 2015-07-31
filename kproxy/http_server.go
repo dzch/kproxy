@@ -111,24 +111,24 @@ func (httpServer *HttpServer) handleCm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	/* compose CmData */
-	cdpe := httpServer.cdp.fetch()
-	defer httpServer.cdp.put(cdpe)
-	cdpe.cmData.topic = qv.Get("topic")
-	cdpe.cmData.key = qv.Get("key")
-	cdpe.cmData.data = post
+	cmData := httpServer.cdp.fetch()
+	defer httpServer.cdp.put(cmData)
+	cmData.topic = qv.Get("topic")
+	cmData.key = qv.Get("key")
+	cmData.data = post
 	/* commit */
-	httpServer.cmDataChan <- cdpe.cmData
+	httpServer.cmDataChan <- cmData
 	/* wait res */
-	<-cdpe.cmData.cmDoneChan
-	if cdpe.cmData.err != nil {
-		logger.Warning("fail to commit req: %s, error: %s", r.URL.String(), (*(cdpe.cmData.err)).Error())
+	<-cmData.cmDoneChan
+	if cmData.err != nil {
+		logger.Warning("fail to commit req: %s, error: %s", r.URL.String(), (*(cmData.err)).Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
     endTime := time.Now()
 	costTimeUS := endTime.Sub(startTime)/time.Microsecond
 	// TODO
-	logger.Notice("success process commit: %s, cost_us=%d, datalen=%d, offset=%d, partition=%d", r.URL.String(), costTimeUS, nr, cdpe.cmData.offset, cdpe.cmData.partition)
+	logger.Notice("success process commit: %s, cost_us=%d, datalen=%d, offset=%d, partition=%d", r.URL.String(), costTimeUS, nr, cmData.offset, cmData.partition)
 	w.WriteHeader(http.StatusOK)
 	return
 }
